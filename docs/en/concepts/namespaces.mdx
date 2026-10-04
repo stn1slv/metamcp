@@ -113,25 +113,17 @@ Available tools through the namespace:
 
 ## Exporting a Namespace
 
-You can export a namespace as a portable, versioned JSON document. This lets you
-store a namespace configuration in Git, review changes in a pull request, and
-promote a namespace between environments.
+You can export a namespace as a portable, versioned JSON document. This lets you store a namespace configuration in Git, review changes in a pull request, and promote a namespace between environments.
 
 1. **Open** the namespace detail page
 2. **Click** "Export"
-3. The browser downloads a `namespace-<name>.json` file
+3. The browser downloads a `namespace-<name>.json` file (characters that are not allowed in file names, such as `/` or `:`, are replaced with `_`)
 
-The export document references servers and tools **by name**, so it is portable
-across MetaMCP instances. Key properties:
+The export document references servers and tools **by name**, so it is portable across MetaMCP instances. Key properties:
 
-- **No secrets**: server connection details (`env` values, bearer tokens, headers)
-  are never included. The document only references servers by name.
-- **Deterministic**: servers and tools are sorted by a stable, locale-independent
-  key, so re-exporting an unchanged namespace produces an identical `namespace`
-  body. Only the top-level `exportedAt` timestamp changes between exports, so
-  diffs stay small.
-- **Deviations only**: a tool is listed only when it is `INACTIVE` or has an
-  override. Tools left in the default `ACTIVE` state with no override are omitted.
+- **No secrets**: server connection details (`env` values, bearer tokens, headers) are never included. The document only references servers by name.
+- **Deterministic**: servers and tools are sorted by a stable, locale-independent key, so re-exporting an unchanged namespace produces an identical `namespace` body. Only the top-level `exportedAt` timestamp changes between exports, so diffs stay small.
+- **Deviations only**: a tool is listed only when it is `INACTIVE` or has an override. Tools left in the default `ACTIVE` state with no override are omitted.
 
 Example export:
 

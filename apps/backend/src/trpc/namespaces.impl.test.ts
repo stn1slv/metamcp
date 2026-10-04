@@ -1,4 +1,4 @@
-import type { DatabaseNamespaceWithServers } from "@repo/zod-types";
+import type { NamespaceExportSnapshot } from "@repo/zod-types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // vitest hoists vi.mock() above imports so namespaces.impl loads against these
@@ -8,8 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // only touches namespacesRepository.
 vi.mock("../db/repositories", () => ({
   namespacesRepository: {
-    findByUuidWithServers: vi.fn(),
-    findToolsByNamespaceUuid: vi.fn(),
+    findExportSnapshotByUuid: vi.fn(),
   },
   mcpServersRepository: {},
   namespaceMappingsRepository: {},
@@ -36,33 +35,32 @@ vi.mock("@/utils/logger", () => ({
 import { namespacesRepository } from "../db/repositories";
 import { namespacesImplementations } from "./namespaces.impl";
 
-const findByUuidWithServers = vi.mocked(
-  namespacesRepository.findByUuidWithServers,
-);
-const findToolsByNamespaceUuid = vi.mocked(
-  namespacesRepository.findToolsByNamespaceUuid,
+const findExportSnapshotByUuid = vi.mocked(
+  namespacesRepository.findExportSnapshotByUuid,
 );
 
-function namespaceOwnedBy(userId: string | null): DatabaseNamespaceWithServers {
+function namespaceOwnedBy(userId: string | null): NamespaceExportSnapshot {
   return {
-    uuid: "ns-uuid",
-    name: "release-manager",
-    description: null,
-    created_at: new Date("2026-07-31T10:00:00.000Z"),
-    updated_at: new Date("2026-07-31T10:00:00.000Z"),
-    user_id: userId,
+    namespace: {
+      uuid: "ns-uuid",
+      name: "release-manager",
+      description: null,
+      created_at: new Date("2026-07-31T10:00:00.000Z"),
+      updated_at: new Date("2026-07-31T10:00:00.000Z"),
+      user_id: userId,
+    },
     servers: [],
+    tools: [],
   };
 }
 
 describe("namespacesImplementations.export", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    findToolsByNamespaceUuid.mockResolvedValue([]);
   });
 
   it("denies exporting a private namespace owned by another user", async () => {
-    findByUuidWithServers.mockResolvedValue(namespaceOwnedBy("other-user"));
+    findExportSnapshotByUuid.mockResolvedValue(namespaceOwnedBy("other-user"));
 
     const result = await namespacesImplementations.export(
       { uuid: "ns-uuid" },
@@ -71,12 +69,12 @@ describe("namespacesImplementations.export", () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("Access denied");
-    // Must not read tools for a namespace the caller cannot access.
-    expect(findToolsByNamespaceUuid).not.toHaveBeenCalled();
+    // Must not return any namespace data to a caller without access.
+    expect(result.data).toBeUndefined();
   });
 
   it("returns not found when the namespace does not exist", async () => {
-    findByUuidWithServers.mockResolvedValue(null);
+    findExportSnapshotByUuid.mockResolvedValue(null);
 
     const result = await namespacesImplementations.export(
       { uuid: "missing" },
@@ -88,7 +86,7 @@ describe("namespacesImplementations.export", () => {
   });
 
   it("exports a namespace owned by the caller", async () => {
-    findByUuidWithServers.mockResolvedValue(namespaceOwnedBy("user-1"));
+    findExportSnapshotByUuid.mockResolvedValue(namespaceOwnedBy("user-1"));
 
     const result = await namespacesImplementations.export(
       { uuid: "ns-uuid" },
@@ -101,7 +99,7 @@ describe("namespacesImplementations.export", () => {
   });
 
   it("exports a public namespace for any user", async () => {
-    findByUuidWithServers.mockResolvedValue(namespaceOwnedBy(null));
+    findExportSnapshotByUuid.mockResolvedValue(namespaceOwnedBy(null));
 
     const result = await namespacesImplementations.export(
       { uuid: "ns-uuid" },

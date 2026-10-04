@@ -1,12 +1,17 @@
 import {
-  DatabaseNamespaceTool,
-  DatabaseNamespaceWithServers,
+  DatabaseNamespace,
   NAMESPACE_EXPORT_VERSION,
   NamespaceExport,
   NamespaceExportServerEntry,
+  NamespaceExportSnapshot,
   NamespaceExportToolEntry,
   NamespaceExportToolOverride,
 } from "@repo/zod-types";
+
+type ExportNamespaceSource = Pick<DatabaseNamespace, "name" | "description"> & {
+  servers: NamespaceExportSnapshot["servers"];
+};
+type ExportToolSource = NamespaceExportSnapshot["tools"][number];
 
 export interface BuildNamespaceExportOptions {
   // Injected so the timestamp is deterministic in tests. Defaults to now.
@@ -21,8 +26,8 @@ export interface BuildNamespaceExportOptions {
 // locale-independent comparison). Only the top-level `exportedAt` provenance
 // timestamp varies between exports.
 export function buildNamespaceExport(
-  namespace: DatabaseNamespaceWithServers,
-  tools: DatabaseNamespaceTool[],
+  namespace: ExportNamespaceSource,
+  tools: ExportToolSource[],
   options: BuildNamespaceExportOptions = {},
 ): NamespaceExport {
   const exportedAt = (options.now ?? new Date()).toISOString();
@@ -84,9 +89,7 @@ function serializeOverride(tool: NamespaceExportToolEntry): string {
   return JSON.stringify(tool.override ?? null);
 }
 
-function buildExportTool(
-  tool: DatabaseNamespaceTool,
-): NamespaceExportToolEntry {
+function buildExportTool(tool: ExportToolSource): NamespaceExportToolEntry {
   const override = buildOverride(tool);
   return {
     server: tool.serverName,
@@ -99,10 +102,12 @@ function buildExportTool(
 // Collects the non-null override fields into a compact object, omitting empty
 // annotations. Returns undefined when there is no override at all.
 function buildOverride(
-  tool: DatabaseNamespaceTool,
+  tool: ExportToolSource,
 ): NamespaceExportToolOverride | undefined {
   const override: NamespaceExportToolOverride = {};
-  if (tool.overrideName != null) {
+  // A blank name is ignored at runtime (tool-overrides.functional.ts), so it is
+  // not a real override and is not exported.
+  if (tool.overrideName != null && tool.overrideName.trim() !== "") {
     override.name = tool.overrideName;
   }
   if (tool.overrideTitle != null) {
@@ -133,12 +138,16 @@ function sortKeysDeep(value: unknown): unknown {
     return value.map(sortKeysDeep);
   }
   if (value !== null && typeof value === "object") {
-    return Object.keys(value as Record<string, unknown>)
-      .sort()
-      .reduce<Record<string, unknown>>((acc, key) => {
-        acc[key] = sortKeysDeep((value as Record<string, unknown>)[key]);
-        return acc;
-      }, {});
+    // Object.fromEntries defines own properties, so a "__proto__" key from
+    // JSONB is kept as data instead of changing the prototype.
+    return Object.fromEntries(
+      Object.keys(value as Record<string, unknown>)
+        .sort()
+        .map((key) => [
+          key,
+          sortKeysDeep((value as Record<string, unknown>)[key]),
+        ]),
+    );
   }
   return value;
 }

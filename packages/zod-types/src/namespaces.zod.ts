@@ -403,3 +403,24 @@ export type DatabaseNamespaceWithServers = z.infer<
   typeof DatabaseNamespaceWithServersSchema
 >;
 export type DatabaseNamespaceTool = z.infer<typeof DatabaseNamespaceToolSchema>;
+
+// The subset of namespace data the export reads. It is loaded without server
+// connection config (env / bearer token / headers), so secrets never enter the
+// export path.
+export type NamespaceExportSnapshot = {
+  namespace: DatabaseNamespace;
+  servers: Pick<
+    DatabaseNamespaceWithServers["servers"][number],
+    "name" | "status"
+  >[];
+  tools: Pick<
+    DatabaseNamespaceTool,
+    | "name"
+    | "serverName"
+    | "status"
+    | "overrideName"
+    | "overrideTitle"
+    | "overrideDescription"
+    | "overrideAnnotations"
+  >[];
+};

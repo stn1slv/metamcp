@@ -157,7 +157,10 @@ export default function NamespaceDetailPage({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `namespace-${result.data.namespace.name}.json`;
+      // Namespace names are free text. Replace characters that are not allowed
+      // in file names, so every browser saves the same predictable name.
+      const safeName = result.data.namespace.name.replace(/[\\/:*?"<>|]/g, "_");
+      a.download = `namespace-${safeName}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

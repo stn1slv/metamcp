@@ -247,10 +247,11 @@ export const namespacesImplementations = {
     userId: string,
   ): Promise<z.infer<typeof ExportNamespaceResponseSchema>> => {
     try {
-      const namespaceWithServers =
-        await namespacesRepository.findByUuidWithServers(input.uuid);
+      const snapshot = await namespacesRepository.findExportSnapshotByUuid(
+        input.uuid,
+      );
 
-      if (!namespaceWithServers) {
+      if (!snapshot) {
         return {
           success: false as const,
           message: "Namespace not found",
@@ -258,10 +259,7 @@ export const namespacesImplementations = {
       }
 
       // Same access rule as get: owner or public namespace only
-      if (
-        namespaceWithServers.user_id &&
-        namespaceWithServers.user_id !== userId
-      ) {
+      if (snapshot.namespace.user_id && snapshot.namespace.user_id !== userId) {
         return {
           success: false as const,
           message:
@@ -269,13 +267,12 @@ export const namespacesImplementations = {
         };
       }
 
-      const toolsData = await namespacesRepository.findToolsByNamespaceUuid(
-        input.uuid,
-      );
-
       return {
         success: true as const,
-        data: buildNamespaceExport(namespaceWithServers, toolsData),
+        data: buildNamespaceExport(
+          { ...snapshot.namespace, servers: snapshot.servers },
+          snapshot.tools,
+        ),
         message: "Namespace exported successfully",
       };
     } catch (error) {

@@ -323,4 +323,51 @@ describe("buildNamespaceExport", () => {
       "readOnlyHint",
     ]);
   });
+
+  it("does not export a blank override name", () => {
+    const namespace = makeNamespace({
+      servers: [makeServer({ name: "github" })],
+    });
+    const tools: DatabaseNamespaceTool[] = [
+      // The runtime ignores a blank name, so this tool has no real deviation.
+      makeTool({ name: "create_pull_request", overrideName: "   " }),
+      makeTool({
+        name: "delete_repository",
+        overrideName: "",
+        overrideDescription: "Do not use.",
+      }),
+    ];
+
+    const result = buildNamespaceExport(namespace, tools, { now: FIXED_NOW });
+
+    expect(result.namespace.tools).toEqual([
+      {
+        server: "github",
+        name: "delete_repository",
+        status: "ACTIVE",
+        override: { description: "Do not use." },
+      },
+    ]);
+  });
+
+  it("keeps a __proto__ annotation key as data", () => {
+    const namespace = makeNamespace({
+      servers: [makeServer({ name: "github" })],
+    });
+    // JSON.parse creates "__proto__" as an own key, like a JSONB value does.
+    const tools: DatabaseNamespaceTool[] = [
+      makeTool({
+        name: "create_pull_request",
+        overrideAnnotations: JSON.parse(
+          '{"__proto__":{"x":1},"readOnlyHint":true}',
+        ),
+      }),
+    ];
+
+    const result = buildNamespaceExport(namespace, tools, { now: FIXED_NOW });
+
+    expect(JSON.stringify(result.namespace.tools[0]?.override)).toBe(
+      '{"annotations":{"__proto__":{"x":1},"readOnlyHint":true}}',
+    );
+  });
 });
