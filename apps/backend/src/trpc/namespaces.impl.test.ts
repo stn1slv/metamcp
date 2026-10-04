@@ -1,4 +1,7 @@
-import type { NamespaceExportSnapshot } from "@repo/zod-types";
+import {
+  ExportNamespaceResponseSchema,
+  type NamespaceExportSnapshot,
+} from "@repo/zod-types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // vitest hoists vi.mock() above imports so namespaces.impl loads against these
@@ -107,5 +110,39 @@ describe("namespacesImplementations.export", () => {
     );
 
     expect(result.success).toBe(true);
+  });
+
+  it("returns the same document that the tRPC output schema returns", async () => {
+    const snapshot = namespaceOwnedBy("user-1");
+    snapshot.servers = [{ name: "github", status: "ACTIVE" }];
+    snapshot.tools = [
+      {
+        name: "create_pull_request",
+        serverName: "github",
+        status: "ACTIVE",
+        overrideName: null,
+        overrideTitle: null,
+        overrideDescription: null,
+        // Unknown keys, nested objects and a JSONB-style "__proto__" key.
+        overrideAnnotations: JSON.parse(
+          '{"__proto__":{"x":1},"zeta":{"b":1,"a":2},"annotationTitle":"PR"}',
+        ),
+      },
+    ];
+    findExportSnapshotByUuid.mockResolvedValue(snapshot);
+
+    const result = await namespacesImplementations.export(
+      { uuid: "ns-uuid" },
+      "user-1",
+    );
+
+    // The admin MCP tool returns `result` as-is; tRPC returns the parsed copy.
+    expect(JSON.stringify(ExportNamespaceResponseSchema.parse(result))).toBe(
+      JSON.stringify(result),
+    );
+    expect(result.data?.namespace.tools[0]?.override?.annotations).toEqual({
+      annotationTitle: "PR",
+      zeta: { a: 2, b: 1 },
+    });
   });
 });

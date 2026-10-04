@@ -7,6 +7,7 @@ import {
   GetNamespaceToolsRequestSchema,
   GetNamespaceToolsResponseSchema,
   ListNamespacesResponseSchema,
+  NamespaceExportSchema,
   RefreshNamespaceToolsRequestSchema,
   RefreshNamespaceToolsResponseSchema,
   UpdateNamespaceRequestSchema,
@@ -269,9 +270,14 @@ export const namespacesImplementations = {
 
       return {
         success: true as const,
-        data: buildNamespaceExport(
-          { ...snapshot.namespace, servers: snapshot.servers },
-          snapshot.tools,
+        // Parse here so the tRPC query and the admin MCP tool return the same
+        // document. The tRPC output schema parses it again; for example, both
+        // now drop a top-level "__proto__" annotation key.
+        data: NamespaceExportSchema.parse(
+          buildNamespaceExport(
+            { ...snapshot.namespace, servers: snapshot.servers },
+            snapshot.tools,
+          ),
         ),
         message: "Namespace exported successfully",
       };

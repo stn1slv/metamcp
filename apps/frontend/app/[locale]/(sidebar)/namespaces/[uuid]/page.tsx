@@ -164,7 +164,9 @@ export default function NamespaceDetailPage({
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Revoke later: some browsers (Safari, Firefox) cancel the download when
+      // the URL is revoked in the same tick as the click.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
 
       toast.success(t("namespaces:detail.namespaceExported"), {
         description: t("namespaces:detail.namespaceExportedDescription"),

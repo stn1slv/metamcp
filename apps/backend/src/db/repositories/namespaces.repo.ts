@@ -342,6 +342,19 @@ export class NamespacesRepository {
             mcpServersTable,
             eq(toolsTable.mcp_server_uuid, mcpServersTable.uuid),
           )
+          // Keep only tools whose server is still in the namespace, so every
+          // exported tool refers to an entry in `servers`. A tool refresh that
+          // runs while a server is removed can leave such a mapping behind.
+          .innerJoin(
+            namespaceServerMappingsTable,
+            and(
+              eq(namespaceServerMappingsTable.namespace_uuid, uuid),
+              eq(
+                namespaceServerMappingsTable.mcp_server_uuid,
+                toolsTable.mcp_server_uuid,
+              ),
+            ),
+          )
           .where(eq(namespaceToolMappingsTable.namespace_uuid, uuid));
 
         return { namespace, servers, tools };
